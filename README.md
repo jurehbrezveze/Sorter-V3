@@ -1,5 +1,6 @@
 Third version of the code for my lego sorting machine.
-Uses:
+
+Features:
 - yolo model for detecting where bricks are
 - cv2 to process the location of the bricks
 - zones which trigger events when bricks enter and leave
