@@ -1,0 +1,8 @@
+# No "path:" key: Ultralytics uses this file's own folder as the dataset root,
+# so the project can be moved anywhere.
+
+train: images/train
+val: images/val
+
+names:
+  0: Brick
