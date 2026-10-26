@@ -15,10 +15,11 @@ pico = serial.Serial("COM3", 9600, timeout=0)
 
 def pico_init():
     pico.write(b"v 0 80\n")
+    pico.write(b"v 1 70\n")
     pico.write(b"r 0 1000\n")
     pico.write(b"s 1\n")
-    pico.write(b"d 2 0\n")
     pico.write(b"s 2\n")
+    pico.write(b"p 0 1\n")
 
 # Belt photo
 PHOTO_DELAY = 0.5 # stop belt and wait for photo (sec)
@@ -39,23 +40,36 @@ def lookup_part(part_path):
 
 # C channel
 def c_front_enter():
+    if(zones[1].occupied):
+        pico.write(b"b 1\n")
+    
     pico.write(b"v 1 25\n")
+
     pico.write(b"b 0\n")
+    pico.write(b"p 0 0\n")
 
 def c_front_exit():
-    pico.write(b"v 1 50\n")
+    pico.write(b"v 1 70\n")
     pico.write(b"r 0 1000\n")
+    pico.write(b"s 1\n")
+    pico.write(b"p 0 1\n")
 
 # Belt
 def belt_enter():
-    pico.write(b"b 1\n")
+    if(zones[0].occupied):
+        pico.write(b"b 1\n")
 
 def belt_exit():
+    pico.write(b"d 2 1\n")
+
     pico.write(b"s 1\n")
-    pico.write(b"d 2 0\n")
+
+    if(not zones[0].occupied):
+        pico.write(b"r 0 1000\n")
+        pico.write(b"p 0 1\n")
 
 def belt_multiple():
-    pico.write(b"d 2 1\n")
+    pico.write(b"d 2 0\n")
 
 def belt_front_enter():
     global photo_at
@@ -120,6 +134,12 @@ while cv2.waitKey(1) & 0xFF != ord("q"):
         reference = None
 
     cv2.imshow("BrickFinder", frame)
+
+
+pico.write(b"b 0\n")
+pico.write(b"b 1\n")
+pico.write(b"b 2\n")
+pico.write(b"p 0 0\n")
 
 camera.release()
 cv2.destroyAllWindows()
