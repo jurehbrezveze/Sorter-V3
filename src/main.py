@@ -14,12 +14,33 @@ polygons = load_polygons(Path(__file__).parent / "zones.json")
 pico = serial.Serial("COM3", 9600, timeout=0)
 
 def pico_init():
-    pico.write(b"v 0 80\n")
-    pico.write(b"v 1 70\n")
-    pico.write(b"r 0 1000\n")
-    pico.write(b"s 1\n")
-    pico.write(b"s 2\n")
-    pico.write(b"p 0 1\n")
+    send("v 0 80")
+    send("v 1 50")
+    send("m 0 72")
+    send("s 2")
+
+def send(command):
+    pico.write(command.encode() + b"\n")
+
+pv1 = 0
+pm0 = 0
+pm1 = 0
+pp1 = 0
+
+def run(m0, m1, v1, p1):
+    global pv1, pp1, pm0, pm1
+    if(v1 != pv1 or p1 != pp1 or m1 != pm1):
+        pv1 = v1
+        pp1 = p1
+        pm0 = m0
+        pm1 = m1
+        send(f"v 1 {v1}")
+        send(f"{["b", "s"][m1]} 1")
+        send(f"p 0 {p1}")
+        if(m0):
+            send("r 0 1000")
+        else:
+            send("b 0")
 
 # Belt photo
 PHOTO_DELAY = 0.5 # stop belt and wait for photo (sec)
@@ -37,43 +58,47 @@ def lookup_part(part_path):
     except Exception as e:
         print("Part lookup failed:", e)
 
-
+'''
 # C channel
 def c_front_enter():
     if(zones[1].occupied):
-        pico.write(b"b 1\n")
+        send("b 1")
     
-    pico.write(b"v 1 25\n")
+    send("v 1 25")
 
-    pico.write(b"b 0\n")
-    pico.write(b"p 0 0\n")
+    send("b 0")
+    send("p 0 0")
 
 def c_front_exit():
-    pico.write(b"v 1 70\n")
-    pico.write(b"r 0 1000\n")
-    pico.write(b"s 1\n")
-    pico.write(b"p 0 1\n")
+    send("v 1 50")
+    send("r 0 1000")
+    send("s 1")
+    send("p 0 1")
 
 # Belt
 def belt_enter():
     if(zones[0].occupied):
-        pico.write(b"b 1\n")
+        send("b 1")
 
 def belt_exit():
-    pico.write(b"d 2 1\n")
+    send("d 2 1")
 
-    pico.write(b"s 1\n")
+    send("s 1")
 
     if(not zones[0].occupied):
-        pico.write(b"r 0 1000\n")
-        pico.write(b"p 0 1\n")
+        send("r 0 1000")
+        send("p 0 1")
+'''
 
 def belt_multiple():
-    pico.write(b"d 2 0\n")
+    send("d 2 0")
+
+def belt_exit_multiple():
+    send("d 2 1")
 
 def belt_front_enter():
     global photo_at
-    pico.write(b"b 2\n")
+    send("b 2")
     photo_at = time.time() + PHOTO_DELAY
 
 def take_photo():
@@ -91,16 +116,16 @@ def take_photo():
     else:
         print("No brick in photo zone")
 
-    pico.write(b"s 2\n")
-
-def belt_front_exit():
-    return
+    send("s 2")
 
 
-photo_zone = Zone("r3", polygons["r3"], on_enter=belt_front_enter, on_exit=belt_front_exit)
+
+photo_zone = Zone("r3", polygons["r3"], on_enter=belt_front_enter)
 zones = [
-    Zone("r1", polygons["r1"], on_enter=c_front_enter, on_exit=c_front_exit),
-    Zone("r2", polygons["r2"], on_enter=belt_enter, on_exit=belt_exit, on_multiple=belt_multiple),
+#    Zone("r1", polygons["r1"], on_enter=c_front_enter, on_exit=c_front_exit),
+#    Zone("r2", polygons["r2"], on_enter=belt_enter, on_exit=belt_exit, on_multiple=belt_multiple),
+    Zone("r1", polygons["r1"]),
+    Zone("r2", polygons["r2"], on_multiple=belt_multiple, on_exit=belt_exit_multiple),
     photo_zone,
 ]
 
@@ -125,6 +150,21 @@ while cv2.waitKey(1) & 0xFF != ord("q"):
         zone.update(boxes)
         zone.draw(frame)
 
+    # SM
+
+    if(not zones[0].occupied): # !z1
+        run(1, 1, 50, 1)
+        #print("!z1")
+
+    elif(not zones[1].occupied): # z1 && !z2
+        run(0, 1, 25, 1)
+        #print("z1 && !z2")
+
+    elif(zones[1].occupied): # z1 && z2
+        run(0, 0, 50, 0)
+        #print("z1 && z2")
+    
+
     if photo_at is not None and time.time() >= photo_at:
         photo_at = None
         take_photo()
@@ -136,10 +176,10 @@ while cv2.waitKey(1) & 0xFF != ord("q"):
     cv2.imshow("BrickFinder", frame)
 
 
-pico.write(b"b 0\n")
-pico.write(b"b 1\n")
-pico.write(b"b 2\n")
-pico.write(b"p 0 0\n")
+send("b 0")
+send("b 1")
+send("b 2")
+send("p 0 0")
 
 camera.release()
 cv2.destroyAllWindows()
